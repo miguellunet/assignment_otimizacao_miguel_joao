@@ -106,7 +106,7 @@ def solve_mip(instance_number, number_of_runways, objective="penalty", time_limi
     if time_limit is not None:
         model.Params.TimeLimit = time_limit
 
-    #model.Params.OutputFlag = 0  # Suppress Gurobi output
+    model.Params.OutputFlag = 0  # Suppress Gurobi output
     model.optimize()
 
     end_time = time.time()
