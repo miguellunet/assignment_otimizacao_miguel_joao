@@ -1,7 +1,8 @@
 from miscellaneous import read_instance
 from gurobipy import Model, GRB, quicksum
+import time
 
-def solve_mip(instance_number, number_of_runways, objective="penalty"):
+def solve_mip(instance_number, number_of_runways, objective="penalty", time_limit=None):
 
     instance = read_instance(instance_number) 
 
@@ -10,7 +11,6 @@ def solve_mip(instance_number, number_of_runways, objective="penalty"):
     #planes = instance['planes']
 
     #Sets and parameters
-
     P = range(number_of_planes)  # Set of planes
     if number_of_runways >= 2:
         R = range(number_of_runways)  # Set of runways
@@ -33,6 +33,9 @@ def solve_mip(instance_number, number_of_runways, objective="penalty"):
 
     # W is the set of pairs (i,j) of planes for which i definitely lands before j (and for which the separation constraint is automatically satisfied)
     W = [(i, j) for i in P for j in P if i != j and L[i] < E[j] and L[i] + S[i][j] <= E[j]]
+
+    # Timing starts here (model creation + solve)
+    start_time = time.time()
 
     #Variables
     model = Model("Airplane_Landing_Problem")
@@ -60,6 +63,7 @@ def solve_mip(instance_number, number_of_runways, objective="penalty"):
         model.addConstr(x[i] >= E[i], name=f"Earliest_Landing_{i}")
         model.addConstr(x[i] <= L[i], name=f"Latest_Landing_{i}")
         model.addConstr(alpha[i] >= T[i] - x[i], name=f"Alpha_Definition_{i}")
+        model.addConstr(alpha[i] <= T[i] - E[i], name=f"Alpha_Limit_{i}")
         model.addConstr(beta[i] >= x[i] - T[i], name=f"Beta_Definition_{i}")
         model.addConstr(beta[i] <= L[i] - T[i], name=f"Beta_Limit_{i}")
         model.addConstr(x[i] == T[i] - alpha[i] + beta[i], name=f"Landing_Time_Definition_{i}")
@@ -98,14 +102,42 @@ def solve_mip(instance_number, number_of_runways, objective="penalty"):
         for (i, j) in U:
             model.addConstr(x[j] >= x[i] + S[i][j]*z[i,j] + s[i][j]*(1-z[i,j]) - (L[i]+max(S[i][j], s[i][j])-E[j])*delta[j,i], name=f"Separation_Same_Runway_U_{i}_{j}")
 
+    # Set time limit if provided
+    if time_limit is not None:
+        model.Params.TimeLimit = time_limit
+
+    #model.Params.OutputFlag = 0  # Suppress Gurobi output
     model.optimize()
 
-    if number_of_runways == 1:
-        runway_assignment = [0 for _ in P]  # All planes assigned to runway 0
-        landing_times = [x[i].X for i in P]
+    end_time = time.time()
+    time_taken = end_time - start_time
+
+    # Retrieve upper bound (best feasible solution), lower bound (best bound), and gap
+    ub = model.ObjVal if model.SolCount > 0 else None
+    lb = model.ObjBound if hasattr(model, 'ObjBound') else None
+    gap = model.MIPGap if hasattr(model, 'MIPGap') else None
+
+    if model.SolCount > 0:
+        if number_of_runways == 1:
+            runway_assignment = [0 for _ in P]  # All planes assigned to runway 0
+            landing_times = [x[i].X for i in P]
+        else:
+            runway_assignment = [r for i in P for r in R if y[i, r].X > 0.5]
+            landing_times = [x[i].X for i in P]
+
+        # Calculate all objectives given the solution
+        penalty_objective = sum(g[i] * max(T[i] - landing_times[i], 0) + h[i] * max(landing_times[i] - T[i], 0) for i in P)
+        total_time_objective = sum(landing_times)
+        makespan_objective = max(landing_times)
+        # Calculate time difference to target for each plane
+        time_diff_to_target = [landing_times[i] - T[i] for i in P]
     else:
-        runway_assignment = [r for i in P for r in R if y[i, r].X > 0.5]
-        landing_times = [x[i].X for i in P]
-    
-    return landing_times, runway_assignment, model.ObjVal
+        runway_assignment = None
+        landing_times = None
+        penalty_objective = None
+        total_time_objective = None
+        makespan_objective = None
+        time_diff_to_target = None
+
+    return landing_times, time_diff_to_target, runway_assignment, penalty_objective, total_time_objective, makespan_objective, time_taken, ub, lb, gap
 
