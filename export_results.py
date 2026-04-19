@@ -3,11 +3,8 @@ import os
 from mip import solve_mip
 
 instance_number_list = [1,2,3,4,5,6,7,8,9,10,11,12,13]
-instance_number_list = [9, 10, 11, 12, 13]
-instance_number_list = [9]
 num_runways_list = [1,2,3]
 objectives = ['penalty', 'total_time', 'makespan']
-objectives = ['penalty']
 
 output_file = 'results/optimization_results.csv'
 fieldnames = ['instance_number', 'objective', 'number_of_runways', 'landing_times', 'time_diff_to_target', 'runway_assignment', 'objective_value', 'penalty_objective', 'total_time_objective', 'makespan_objective', 'time_taken', 'ub', 'lb', 'gap']

@@ -106,6 +106,7 @@ def solve_mip(instance_number, number_of_runways, objective="penalty", time_limi
     if time_limit is not None:
         model.Params.TimeLimit = time_limit
 
+    #model.setParam('MIPGap', 1e-8)  # Set a MIP gap of 0.0001% to allow for high-precision solutions
     model.Params.OutputFlag = 0  # Suppress Gurobi output
     model.optimize()
 
