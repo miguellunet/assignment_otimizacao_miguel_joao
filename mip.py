@@ -86,6 +86,10 @@ def solve_mip(instance_number, number_of_runways, objective="penalty", time_limi
             model.addConstr(Z_max >= x[i])
 
     if number_of_runways >= 2:
+
+        #Add symmetry breaking constrain imposing that plane 0 is assigned to runway 0 (if there are at least 2 runways)
+        model.addConstr(y[0, 0] == 1, name="Symmetry_Breaking_Plane_0_Runway_0")
+
         for i in P:
             model.addConstr(quicksum(y[i, r] for r in R) == 1, name=f"Runway_Assignment_{i}")
 
@@ -106,7 +110,7 @@ def solve_mip(instance_number, number_of_runways, objective="penalty", time_limi
     if time_limit is not None:
         model.Params.TimeLimit = time_limit
 
-    #model.setParam('MIPGap', 1e-8)  # Set a MIP gap of 0.0001% to allow for high-precision solutions
+    model.setParam('MIPGap', 0)  # Set a MIP gap of 0.0001% to allow for high-precision solutions
     model.Params.OutputFlag = 0  # Suppress Gurobi output
     model.optimize()
 
